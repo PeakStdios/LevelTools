@@ -5,24 +5,39 @@ import org.jetbrains.annotations.Nullable;
 
 public final class TriggerSettings {
     private final ClickMode clickMode;
+    private final boolean requireCorrectTool;
 
-    private TriggerSettings(@Nullable ClickMode clickMode) {
+    private TriggerSettings(@Nullable ClickMode clickMode, boolean requireCorrectTool) {
         this.clickMode = clickMode;
+        this.requireCorrectTool = requireCorrectTool;
     }
 
     @NotNull
     public static TriggerSettings empty() {
-        return new TriggerSettings(null);
+        return new TriggerSettings(null, false);
     }
 
     @NotNull
     public static TriggerSettings forClick(@NotNull ClickMode mode) {
-        return new TriggerSettings(mode);
+        return new TriggerSettings(mode, false);
+    }
+
+    @NotNull
+    public static TriggerSettings forBlockBreak(boolean requireCorrectTool) {
+        return new TriggerSettings(null, requireCorrectTool);
     }
 
     @Nullable
     public ClickMode getClickMode() {
         return clickMode;
+    }
+
+    /**
+     * BLOCK_BREAK only: if true, XP is only granted when the held tool is the
+     * vanilla-intended tool for the block (minecraft:mineable/* block tags).
+     */
+    public boolean isRequireCorrectTool() {
+        return requireCorrectTool;
     }
 
     public enum ClickMode {

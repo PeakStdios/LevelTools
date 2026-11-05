@@ -1,27 +1,31 @@
 package me.byteful.plugin.leveltools.api.item.impl;
 
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.ItemAttributeModifiers;
+import io.papermc.paper.persistence.PersistentDataContainerView;
 import me.byteful.plugin.leveltools.LevelToolsPlugin;
 import me.byteful.plugin.leveltools.api.item.LevelToolsItem;
 import me.byteful.plugin.leveltools.util.LevelToolsUtil;
+import me.byteful.plugin.leveltools.util.Lookups;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.EquipmentSlotGroup;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
+/**
+ * Stores level/xp in the item's persistent data. Reads go through the read-only PDC view and writes through
+ * data components, so no ItemMeta copy is made per update.
+ */
 public class PDCLevelToolsItem implements LevelToolsItem {
     @NotNull
     public static final NamespacedKey
@@ -29,37 +33,25 @@ public class PDCLevelToolsItem implements LevelToolsItem {
             XP_KEY = new NamespacedKey(LevelToolsPlugin.getInstance(), "levelToolsXp"),
             LAST_REWARD_KEY = new NamespacedKey(LevelToolsPlugin.getInstance(), "levelToolsReward");
 
+    private static final String MODIFIER_NAMESPACE = "leveltools";
+
     @NotNull
     private ItemStack stack;
     @NotNull
-    private Map<Enchantment, Integer> enchantments;
+    private Map<Enchantment, Integer> enchantments = new HashMap<>();
     @NotNull
-    private Map<String, Double> attributes;
+    private Map<String, Double> attributes = new LinkedHashMap<>();
     private int level;
     private double xp;
     private int lastHandledReward;
 
     public PDCLevelToolsItem(@NotNull ItemStack stack) {
-        this(stack, stack.getItemMeta());
-    }
-
-    public PDCLevelToolsItem(@NotNull ItemStack stack, @Nullable ItemMeta meta) {
         this.stack = stack;
-        this.enchantments = new HashMap<>();
-        this.attributes = new HashMap<>();
-        readState(meta);
+        readState();
     }
 
-    private void readState(@Nullable ItemMeta meta) {
-        if (meta == null) {
-            level = 0;
-            xp = 0.0D;
-            lastHandledReward = -1;
-
-            return;
-        }
-
-        final PersistentDataContainer pdc = meta.getPersistentDataContainer();
+    private void readState() {
+        final PersistentDataContainerView pdc = stack.getPersistentDataContainer();
         final Integer storedLevel = pdc.get(LEVEL_KEY, PersistentDataType.INTEGER);
         final Double storedXp = pdc.get(XP_KEY, PersistentDataType.DOUBLE);
         final Integer storedLastReward = pdc.get(LAST_REWARD_KEY, PersistentDataType.INTEGER);
@@ -76,41 +68,60 @@ public class PDCLevelToolsItem implements LevelToolsItem {
     @Override
     public @NotNull ItemStack getItemStack(double maxXp) {
         final ItemStack built = stack.clone();
-        final ItemMeta meta = built.getItemMeta();
-        assert meta != null : "ItemMeta is null! Should not happen.";
 
-        final PersistentDataContainer pdc = meta.getPersistentDataContainer();
-        pdc.set(LEVEL_KEY, PersistentDataType.INTEGER, level);
-        pdc.set(XP_KEY, PersistentDataType.DOUBLE, xp);
-        pdc.set(LAST_REWARD_KEY, PersistentDataType.INTEGER, lastHandledReward);
+        built.editPersistentDataContainer(pdc -> {
+            pdc.set(LEVEL_KEY, PersistentDataType.INTEGER, level);
+            pdc.set(XP_KEY, PersistentDataType.DOUBLE, xp);
+            pdc.set(LAST_REWARD_KEY, PersistentDataType.INTEGER, lastHandledReward);
+        });
 
-        LevelToolsUtil.applyDisplay(built, meta, enchantments, level, xp, maxXp);
-        applyAttributes(meta);
-        built.setItemMeta(meta);
+        for (Map.Entry<Enchantment, Integer> entry : enchantments.entrySet()) {
+            built.addUnsafeEnchantment(entry.getKey(), entry.getValue());
+        }
+
+        applyAttributes(built);
+        LevelToolsUtil.applyDisplay(built, level, xp, maxXp);
 
         return built;
     }
 
-    private void applyAttributes(@NotNull ItemMeta meta) {
-        for (Map.Entry<String, Double> entry : attributes.entrySet()) {
-            final String name = entry.getKey();
-            final Attribute attribute =
-                    Attribute.valueOf(name.replace(".", "_").toUpperCase(Locale.ROOT).trim());
-            final Collection<AttributeModifier> existing = meta.getAttributeModifiers(attribute);
-            if (existing != null) {
-                for (AttributeModifier modifier : existing) {
-                    if (name.equals(modifier.getName())) {
-                        meta.removeAttributeModifier(attribute, modifier);
-                    }
+    private void applyAttributes(@NotNull ItemStack built) {
+        if (attributes.isEmpty()) {
+            return;
+        }
+
+        // Start from the effective modifiers (includes the item's vanilla defaults like attack damage),
+        // otherwise setting the component would wipe them.
+        final ItemAttributeModifiers current = built.getData(DataComponentTypes.ATTRIBUTE_MODIFIERS);
+        final ItemAttributeModifiers.Builder builder = ItemAttributeModifiers.itemAttributes();
+
+        if (current != null) {
+            for (ItemAttributeModifiers.Entry entry : current.modifiers()) {
+                if (!MODIFIER_NAMESPACE.equals(entry.modifier().getKey().getNamespace())) {
+                    builder.addModifier(entry.attribute(), entry.modifier(), entry.getGroup());
                 }
             }
-            // Deterministic UUID so rebuilds replace the modifier instead of stacking duplicates.
-            meta.addAttributeModifier(attribute, new AttributeModifier(
-                    UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8)),
-                    name,
-                    entry.getValue(),
-                    AttributeModifier.Operation.ADD_NUMBER));
         }
+
+        for (Map.Entry<String, Double> entry : attributes.entrySet()) {
+            final Attribute attribute = Lookups.attribute(entry.getKey());
+            if (attribute == null) {
+                LevelToolsPlugin.getInstance().getLogger().warning("Unknown attribute in reward: " + entry.getKey());
+                continue;
+            }
+
+            final String path = entry.getKey().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
+            builder.addModifier(
+                    attribute,
+                    new AttributeModifier(
+                            new NamespacedKey(MODIFIER_NAMESPACE, path),
+                            entry.getValue(),
+                            AttributeModifier.Operation.ADD_NUMBER,
+                            EquipmentSlotGroup.ANY),
+                    EquipmentSlotGroup.ANY);
+        }
+
+        built.setData(DataComponentTypes.ATTRIBUTE_MODIFIERS, builder.build());
     }
 
     @Override
@@ -149,6 +160,12 @@ public class PDCLevelToolsItem implements LevelToolsItem {
     }
 
     @Override
+    public int getEnchantmentLevel(@NotNull Enchantment enchantment) {
+        final Integer queued = enchantments.get(enchantment);
+        return queued != null ? queued : stack.getEnchantmentLevel(enchantment);
+    }
+
+    @Override
     public void modifyAttribute(String attribute, double modifier) {
         attributes.put(attribute, modifier);
     }
@@ -160,7 +177,7 @@ public class PDCLevelToolsItem implements LevelToolsItem {
 
     public void setStack(@NotNull ItemStack stack) {
         this.stack = stack;
-        readState(stack.getItemMeta());
+        readState();
     }
 
     @NotNull
@@ -183,8 +200,7 @@ public class PDCLevelToolsItem implements LevelToolsItem {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        PDCLevelToolsItem that = (PDCLevelToolsItem) o;
+        if (!(o instanceof PDCLevelToolsItem that)) return false;
         return level == that.level
                 && Double.compare(that.xp, xp) == 0
                 && lastHandledReward == that.lastHandledReward
@@ -200,19 +216,7 @@ public class PDCLevelToolsItem implements LevelToolsItem {
 
     @Override
     public String toString() {
-        return "PDCLevelToolsItem{"
-                + "stack="
-                + stack
-                + ", enchantments="
-                + enchantments
-                + ", attributes="
-                + attributes
-                + ", level="
-                + level
-                + ", xp="
-                + xp
-                + ", lastHandledReward="
-                + lastHandledReward
-                + '}';
+        return "PDCLevelToolsItem{stack=" + stack + ", enchantments=" + enchantments + ", attributes=" + attributes
+                + ", level=" + level + ", xp=" + xp + ", lastHandledReward=" + lastHandledReward + '}';
     }
 }

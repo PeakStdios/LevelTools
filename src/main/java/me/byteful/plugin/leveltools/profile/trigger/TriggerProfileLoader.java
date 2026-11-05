@@ -125,6 +125,9 @@ public final class TriggerProfileLoader {
             TriggerSettings.ClickMode clickMode = TriggerSettings.ClickMode.fromString(clickModeStr);
             return TriggerSettings.forClick(clickMode);
         }
+        if (TriggerIds.BLOCK_BREAK.equals(triggerId)) {
+            return TriggerSettings.forBlockBreak(section.getBoolean("require_correct_tool", true));
+        }
         return TriggerSettings.empty();
     }
 

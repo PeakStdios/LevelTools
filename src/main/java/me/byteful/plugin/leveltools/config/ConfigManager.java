@@ -1,6 +1,6 @@
 package me.byteful.plugin.leveltools.config;
 
-import com.cryptomorin.xseries.XSound;
+import me.byteful.plugin.leveltools.util.Lookups;
 import me.byteful.plugin.leveltools.LevelToolsPlugin;
 import me.byteful.plugin.leveltools.config.migration.ConfigMigrator;
 import org.bukkit.Sound;
@@ -228,10 +228,9 @@ public final class ConfigManager {
                 return null;
             }
 
-            XSound parsed = XSound.matchXSound(name).orElse(null);
-            Sound sound = parsed != null && parsed.isSupported() ? parsed.parseSound() : null;
+            Sound sound = Lookups.sound(name);
             if (sound == null) {
-                logger.warning("The level_up_sound '" + name + "' is unknown or unsupported on this server version. Please fix your configuration.");
+                logger.warning("The level_up_sound '" + name + "' is unknown. Please fix your configuration.");
                 return null;
             }
 

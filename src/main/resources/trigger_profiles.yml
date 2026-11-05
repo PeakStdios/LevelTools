@@ -19,6 +19,10 @@ profiles:
   # Block breaking trigger - shared by pickaxes, axes, shovels
   block_mining:
     type: BLOCK_BREAK
+    # Only give XP if the held tool is the intended tool for the block
+    # (vanilla mineable tags: pickaxe -> stone/ores, shovel -> sand/gravel/dirt, axe -> wood, hoe -> leaves/hay).
+    # Default: true
+    require_correct_tool: true
     xp_modifier:
       default:
         min: 0.5

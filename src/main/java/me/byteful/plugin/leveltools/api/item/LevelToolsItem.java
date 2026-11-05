@@ -1,11 +1,9 @@
 package me.byteful.plugin.leveltools.api.item;
 
 import me.byteful.plugin.leveltools.LevelToolsPlugin;
-import me.byteful.plugin.leveltools.util.LevelToolsUtil;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
-import redempt.crunch.CompiledExpression;
 
 public interface LevelToolsItem {
     @NotNull
@@ -29,18 +27,17 @@ public interface LevelToolsItem {
     void setLastHandledReward(int rewardKey);
 
     default double getMaxXp() {
-        final CompiledExpression formula = LevelToolsPlugin.getInstance().getLevelXpFormula();
-        final double nextXpRequirement = LevelToolsUtil.round(formula.evaluate(getLevel()), 1);
-
-        if (nextXpRequirement <= 0.0) {
-            throw new RuntimeException(
-                    "The next XP requirement formula returned a value too small! Please optimize your formula.");
-        }
-
-        return nextXpRequirement;
+        return LevelToolsPlugin.getInstance().getXpFormulaRegistry().evaluateGlobalMaxXp(getLevel());
     }
 
     void enchant(Enchantment enchantment, int level);
+
+    /**
+     * Current level of the enchantment, including enchants that were queued by rewards but are not on the stack yet.
+     */
+    default int getEnchantmentLevel(@NotNull Enchantment enchantment) {
+        return getItemStack().getEnchantmentLevel(enchantment);
+    }
 
     void modifyAttribute(String attribute, double modifier);
 }

@@ -1,69 +1,39 @@
 plugins {
     id 'java'
-    id 'idea'
-    id 'maven-publish'
     id("com.gradleup.shadow") version "9.0.0-beta13"
 }
 
 repositories {
     mavenCentral()
-    maven {
-        url = uri('https://hub.spigotmc.org/nexus/content/repositories/snapshots/')
-    }
-    maven {
-        url = uri('https://repo.papermc.io/repository/maven-public/')
-    }
-    maven {
-        url = uri('https://oss.sonatype.org/content/groups/public/')
-    }
-    maven {
-        url = uri('https://repo.codemc.org/repository/maven-public/')
-    }
-    maven {
-        url = uri('https://repo.maven.apache.org/maven2/')
-    }
-    maven {
-        url = uri('https://redempt.dev')
-    }
-    maven {
-        url = uri('https://jitpack.io')
-    }
-    maven {
-        url = uri('https://repo.extendedclip.com/content/repositories/placeholderapi/')
-    }
-    maven {
-        url = uri('https://hub.jeff-media.com/nexus/repository/jeff-media-public/')
-    }
+    maven { url = uri('https://repo.papermc.io/repository/maven-public/') }
+    maven { url = uri('https://redempt.dev') }
+    maven { url = uri('https://jitpack.io') }
+    maven { url = uri('https://repo.extendedclip.com/releases/') }
 }
 
 dependencies {
-    implementation 'de.tr7zw:item-nbt-api:2.16.1'
     implementation 'com.github.Redempt:Crunch:2.0.3'
-    implementation 'com.github.cryptomorin:XSeries:14.0.0'
     implementation 'io.github.revxrsal:lamp.common:4.0.0-rc.19'
     implementation 'io.github.revxrsal:lamp.bukkit:4.0.0-rc.19'
-    implementation 'org.bstats:bstats-bukkit:3.2.1'
-    implementation 'com.jeff-media:MorePersistentDataTypes:2.4.0'
 
-    compileOnly files('libs/folia-api-1.20.4-R0.1-SNAPSHOT.jar') // Modified API jar with Java 8 support
-    compileOnly 'net.kyori:adventure-api:4.26.1'
-    compileOnly 'net.kyori:adventure-platform-bukkit:4.4.1'
-    compileOnly 'org.spigotmc:spigot-api:1.14.4-R0.1-SNAPSHOT'
+    compileOnly 'io.papermc.paper:paper-api:26.3.build.242-stable'
     compileOnly 'org.jetbrains:annotations:26.1.0'
-    compileOnly 'me.clip:placeholderapi:2.12.2'
+    compileOnly 'me.clip:placeholderapi:2.11.6'
 }
 
 group = 'me.byteful.plugin'
-version = '2.2.0'
+version = '2.2.0-paper'
 description = 'LevelTools'
-java.sourceCompatibility = JavaVersion.VERSION_17
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            from(components.java)
-        }
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release.set(25)
+    options.compilerArgs += ["-parameters"] // Lamp needs parameter names
 }
 
 shadowJar {
@@ -73,22 +43,8 @@ shadowJar {
     archiveBaseName.set("LevelTools")
     archiveClassifier.set("")
 
-    relocate "de.tr7zw.changeme.nbtapi", "me.byteful.plugin.leveltools.libs.nbtapi"
-    relocate "com.cryptomorin.xseries", "me.byteful.plugin.leveltools.libs.xseries"
-    relocate "redempt.crunch", "me.byteful.plugin.leveltools.libs.crunch"
+    relocate 'redempt.crunch', 'me.byteful.plugin.leveltools.libs.crunch'
     relocate 'revxrsal.commands', 'me.byteful.plugin.leveltools.libs.lamp'
-    relocate 'org.bstats', 'me.byteful.plugin.leveltools.libs.bstats'
-    relocate 'com.jeff-media.morepersistentdatatypes', 'me.byteful.plugin.leveltools.libs.morepersistentdatatypes'
-}
-
-def targetJavaVersion = 8
-java {
-    sourceCompatibility = 17
-    targetCompatibility = 8
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.release.set(targetJavaVersion)
 }
 
 processResources {
@@ -98,10 +54,6 @@ processResources {
     filesMatching('plugin.yml') {
         expand props
     }
-}
-
-compileJava { // Preserve parameter names in the bytecode
-    options.compilerArgs += ["-parameters"]
 }
 
 tasks.build.dependsOn += shadowJar

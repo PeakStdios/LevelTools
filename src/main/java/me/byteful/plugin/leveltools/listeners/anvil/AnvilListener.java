@@ -8,8 +8,8 @@ import org.bukkit.inventory.AnvilInventory;
 import org.bukkit.inventory.ItemStack;
 
 import static me.byteful.plugin.leveltools.listeners.anvil.AnvilHelper.shouldBlockEnchantedBookResult;
-import static me.byteful.plugin.leveltools.listeners.anvil.LegacyAnvilListener.createUpdatedResult;
-import static me.byteful.plugin.leveltools.listeners.anvil.LegacyAnvilListener.isHandledAnvilAction;
+import static me.byteful.plugin.leveltools.listeners.anvil.AnvilHelper.createUpdatedResult;
+import static me.byteful.plugin.leveltools.listeners.anvil.AnvilHelper.isHandledAnvilAction;
 
 public class AnvilListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

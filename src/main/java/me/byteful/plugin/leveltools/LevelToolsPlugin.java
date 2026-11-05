@@ -5,18 +5,16 @@ import me.byteful.plugin.leveltools.api.block.BlockDataManager;
 import me.byteful.plugin.leveltools.api.block.BlockDataManagerFactory;
 import me.byteful.plugin.leveltools.api.event.LevelToolsLoadEvent;
 import me.byteful.plugin.leveltools.api.scheduler.Scheduler;
+import me.byteful.plugin.leveltools.api.scheduler.impl.bukkit.BukkitScheduler;
 import me.byteful.plugin.leveltools.api.trigger.TriggerRegistry;
 import me.byteful.plugin.leveltools.config.ConfigManager;
 import me.byteful.plugin.leveltools.config.XpFormulaRegistry;
 import me.byteful.plugin.leveltools.listeners.anvil.AnvilListener;
 import me.byteful.plugin.leveltools.listeners.BlockPlacementListener;
 import me.byteful.plugin.leveltools.listeners.TriggerListener;
-import me.byteful.plugin.leveltools.listeners.anvil.LegacyAnvilListener;
 import me.byteful.plugin.leveltools.profile.ProfileManager;
 import me.byteful.plugin.leveltools.util.LevelToolsUtil;
-import me.byteful.plugin.leveltools.util.UpdateChecker;
 import me.byteful.plugin.leveltools.util.XPBooster;
-import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -27,7 +25,6 @@ import revxrsal.commands.bukkit.actor.BukkitCommandActor;
 
 import java.io.IOException;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 import static java.lang.String.format;
 import static me.byteful.plugin.leveltools.util.Text.colorize;
@@ -37,9 +34,7 @@ public final class LevelToolsPlugin extends JavaPlugin {
 
     private Lamp<BukkitCommandActor> commandManager;
     private AnvilCombineMode anvilCombineMode;
-    private UpdateChecker updateChecker;
     private volatile XpFormulaRegistry xpFormulaRegistry;
-    private Metrics metrics;
     private BlockDataManager blockDataManager;
     private String blockDataStorageType;
     private Scheduler scheduler;
@@ -57,8 +52,7 @@ public final class LevelToolsPlugin extends JavaPlugin {
         sendStartupBanner();
         instance = this;
 
-        scheduler = LevelToolsUtil.createScheduler(this);
-        updateChecker = new UpdateChecker(this, scheduler);
+        scheduler = new BukkitScheduler(this);
 
         configManager = new ConfigManager(this);
         configManager.loadAll();
@@ -92,15 +86,6 @@ public final class LevelToolsPlugin extends JavaPlugin {
         blockDataStorageType = getBlockDataStorageType();
         getLogger().info("Loaded block data manager...");
 
-        if (getConfig().getBoolean("update.start")) {
-            updateChecker.check();
-        }
-
-        if (getConfig().getBoolean("update.periodically")) {
-            final long delay = 20L * TimeUnit.DAYS.toSeconds(1);
-            scheduler.syncTimer(() -> updateChecker.check(), delay, delay);
-        }
-
         registerListeners();
         getLogger().info("Registered listeners...");
 
@@ -112,8 +97,6 @@ public final class LevelToolsPlugin extends JavaPlugin {
             new LevelToolsPlaceholders().register();
         }
 
-        metrics = new Metrics(this, 21451);
-
         Bukkit.getPluginManager().callEvent(new LevelToolsLoadEvent(this, LevelToolsLoadEvent.LoadPhase.COMPLETE));
 
         getLogger().info("Successfully started " + getDescription().getFullName() + "!");
@@ -121,10 +104,6 @@ public final class LevelToolsPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        if (metrics != null) {
-            metrics.shutdown();
-        }
-
         closeBlockDataManager(blockDataManager);
 
         instance = null;
@@ -154,11 +133,7 @@ public final class LevelToolsPlugin extends JavaPlugin {
         pm.registerEvents(new BlockPlacementListener(scheduler), this);
         pm.registerEvents(new TriggerListener(profileManager, triggerRegistry), this);
         pm.registerEvents(new XPBooster(), this);
-        if (LevelToolsUtil.requiresLegacyAnvilListener()) {
-            pm.registerEvents(new LegacyAnvilListener(), this);
-        } else {
-            pm.registerEvents(new AnvilListener(), this);
-        }
+        pm.registerEvents(new AnvilListener(), this);
     }
 
     public void reloadPlugin() {
@@ -233,10 +208,6 @@ public final class LevelToolsPlugin extends JavaPlugin {
 
     public Lamp<BukkitCommandActor> getCommandManager() {
         return commandManager;
-    }
-
-    public UpdateChecker getUpdateChecker() {
-        return updateChecker;
     }
 
     public Scheduler getScheduler() {

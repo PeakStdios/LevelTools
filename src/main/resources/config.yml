@@ -12,13 +12,6 @@
 # - https://hub.spigotmc.org/javadocs/spigot/org/bukkit/Sound.html
 # - https://hub.spigotmc.org/javadocs/spigot/org/bukkit/entity/EntityType.html
 
-# Configuration for update checker.
-update:
-  # Should LevelTools check for updates on start?
-  start: true
-  # Should LevelTools check for updates periodically?
-  periodically: true
-
 # Configuration for block data storage.
 block_data_storage:
   # Defines the method used for storing and retrieving placed block data.
@@ -30,10 +23,6 @@ block_data_storage:
   #                  scalability with large datasets, and data integrity.
   #
   type: SQLITE
-
-# Should LevelTools force the legacy NBT storage method for item level/XP data, even on 1.14+ servers where PDC (PersistentDataContainer) is normally used?
-# Tool data is automatically migrated to the active storage method: PDC data migrates to NBT when this is enabled, and NBT data migrates back to PDC when disabled.
-force_nbt: false
 
 # Configuration for messages.
 messages:

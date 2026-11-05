@@ -58,12 +58,12 @@ public final class TriggerListener implements Listener {
         if (!settings.isCountPlayerPlacedBlocks()
                 && LevelToolsPlugin.getInstance().getBlockDataManager().isPlacedBlock(BlockPosition.fromBukkit(block))) {
             if (settings.isIgnorePlayerPlacedBlocksForFullyGrownCrops() && FarmingTrigger.isMatureCropSource(block)) {
-                handleTrigger(player, player.getItemInHand(), TriggerSlot.HAND, block, event, TriggerIds.FARMING);
+                handleTrigger(player, player.getInventory().getItemInMainHand(), TriggerSlot.HAND, block, event, TriggerIds.FARMING);
             }
             return;
         }
 
-        handleTrigger(player, player.getItemInHand(), TriggerSlot.HAND, block, event, TriggerIds.BLOCK_BREAK, TriggerIds.FARMING);
+        handleTrigger(player, player.getInventory().getItemInMainHand(), TriggerSlot.HAND, block, event, TriggerIds.BLOCK_BREAK, TriggerIds.FARMING);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -77,7 +77,7 @@ public final class TriggerListener implements Listener {
             return;
         }
 
-        handleTrigger(killer, killer.getItemInHand(), TriggerSlot.HAND, event.getEntity(), event, TriggerIds.ENTITY_KILL);
+        handleTrigger(killer, killer.getInventory().getItemInMainHand(), TriggerSlot.HAND, event.getEntity(), event, TriggerIds.ENTITY_KILL);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -95,8 +95,8 @@ public final class TriggerListener implements Listener {
         ItemStack item;
         TriggerSlot slot;
 
-        if (!LevelToolsUtil.supportsDualWielding() || event.getHand() == null) {
-            item = event.getPlayer().getItemInHand();
+        if (event.getHand() == null) {
+            item = event.getPlayer().getInventory().getItemInMainHand();
             slot = TriggerSlot.HAND;
         } else {
             item = event.getPlayer().getInventory().getItem(event.getHand());
@@ -128,7 +128,7 @@ public final class TriggerListener implements Listener {
             return;
         }
 
-        TriggerSlot slot = !LevelToolsUtil.supportsDualWielding() || event.getHand() == null
+        TriggerSlot slot = event.getHand() == null
                 ? TriggerSlot.HAND
                 : TriggerSlot.fromBukkit(event.getHand());
 
@@ -149,9 +149,7 @@ public final class TriggerListener implements Listener {
             return;
         }
 
-        TriggerSlot slot = !LevelToolsUtil.supportsDualWielding()
-                ? TriggerSlot.HAND
-                : TriggerSlot.fromBukkit(event.getHand());
+        TriggerSlot slot = TriggerSlot.fromBukkit(event.getHand());
         ItemStack consumedItem = event.getItem();
         handleTrigger(player, consumedItem, slot, consumedItem, event, TriggerIds.CONSUME);
     }
@@ -218,10 +216,9 @@ public final class TriggerListener implements Listener {
         }
 
         Material typeBefore = block.getType();
-        byte dataBefore = getLegacyData(block);
         Material expectedItem = item.getType();
         LevelToolsPlugin.getInstance().getScheduler().locationDelayed(() -> {
-            boolean changed = block.getType() != typeBefore || getLegacyData(block) != dataBefore;
+            boolean changed = block.getType() != typeBefore;
             if (!changed || !player.isOnline()) {
                 return;
             }
@@ -233,12 +230,6 @@ public final class TriggerListener implements Listener {
 
             xpHandler.handle(player, itemProfile, slot, LevelToolsUtil.createLevelToolsItem(live), totalModifier, false);
         }, block.getLocation(), 1);
-    }
-
-    // Only legacy servers need the data value (coarse dirt is DIRT:1 there); calling it on modern servers loads legacy support.
-    @SuppressWarnings("deprecation")
-    private static byte getLegacyData(@NotNull Block block) {
-        return LevelToolsUtil.supportsBlockData() ? 0 : block.getData();
     }
 
     @Nullable

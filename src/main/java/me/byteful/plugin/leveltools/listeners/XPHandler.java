@@ -13,6 +13,7 @@ import me.byteful.plugin.leveltools.profile.reward.RewardProfile;
 import me.byteful.plugin.leveltools.util.LevelToolsUtil;
 import me.byteful.plugin.leveltools.util.Text;
 import me.byteful.plugin.leveltools.util.XPBooster;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -49,12 +50,7 @@ public final class XPHandler {
 
         tool.setXp(xpEvent.getNewXp());
 
-        double maxXp = getMaxXp(player, itemProfile, tool);
-        if (tool.getXp() >= maxXp && handleLevelUp(tool, player, itemProfile, maxXp)) {
-            maxXp = getMaxXp(player, itemProfile, tool);
-        }
-
-        handleReward(tool, player, itemProfile);
+        double maxXp = processLevelUps(player, itemProfile, tool);
 
         if (deferCommit) {
             commitDeferred(player, slot, tool, maxXp);
@@ -94,6 +90,40 @@ public final class XPHandler {
         }, player.getLocation(), 1);
     }
 
+    /**
+     * Levels the tool up as long as its XP reaches the required XP (handles multiple levels at once,
+     * e.g. after /leveltools xp or a big XP boost). Rewards are applied for every level reached.
+     *
+     * @return the required XP for the tool's (new) current level
+     */
+    public double processLevelUps(
+            @NotNull Player player,
+            @NotNull ItemProfile itemProfile,
+            @NotNull LevelToolsItem tool
+    ) {
+        double maxXp = getMaxXp(player, itemProfile, tool);
+        boolean leveled = false;
+        int guard = 0;
+
+        while (maxXp > 0 && tool.getXp() >= maxXp && guard++ < 10000) {
+            if (!handleLevelUp(tool, player, itemProfile, maxXp)) {
+                break;
+            }
+            leveled = true;
+            handleReward(tool, player, itemProfile);
+            maxXp = getMaxXp(player, itemProfile, tool);
+        }
+
+        // Catch-up for rewards of the current level (unchanged behaviour)
+        handleReward(tool, player, itemProfile);
+
+        if (leveled) {
+            playLevelUpSound(player);
+        }
+
+        return maxXp;
+    }
+
     private boolean handleLevelUp(
             @NotNull LevelToolsItem tool,
             @NotNull Player player,
@@ -123,7 +153,6 @@ public final class XPHandler {
             tool.setLevel(maxLevel);
         }
 
-        playLevelUpSound(player);
         return true;
     }
 
@@ -151,7 +180,7 @@ public final class XPHandler {
         }
 
         String progressBar = displayProfile.getProgressBar().buildProgressBar(tool.getXp(), maxXp);
-        String text = Text.colorize(actionBar.getText()
+        Component text = Text.component(actionBar.getText()
                 .replace("{progress_bar}", progressBar)
                 .replace("{xp}", String.valueOf(tool.getXp()))
                 .replace("{max_xp}", String.valueOf(maxXp))

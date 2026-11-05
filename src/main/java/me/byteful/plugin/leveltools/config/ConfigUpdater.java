@@ -49,11 +49,6 @@ public final class ConfigUpdater {
             changed = true;
         }
 
-        if (!config.contains("force_nbt")) {
-            config.set("force_nbt", false);
-            changed = true;
-        }
-
         if (!changed) {
             return;
         }

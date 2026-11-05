@@ -1,6 +1,7 @@
 package me.byteful.plugin.leveltools;
 
 import me.byteful.plugin.leveltools.api.item.LevelToolsItem;
+import me.byteful.plugin.leveltools.listeners.XPHandler;
 import me.byteful.plugin.leveltools.profile.item.ItemProfile;
 import me.byteful.plugin.leveltools.util.LevelToolsUtil;
 import org.bukkit.Bukkit;
@@ -128,8 +129,8 @@ public class LevelToolsCommand {
         if (LevelToolsUtil.isSupportedTool(item.getType())) {
             final LevelToolsItem tool = LevelToolsUtil.createLevelToolsItem(item);
             final ItemProfile itemProfile = LevelToolsUtil.getItemProfile(item.getType());
-            tool.setXp(xp);
-            LevelToolsUtil.setHand(player, LevelToolsUtil.getItemStack(tool, player, itemProfile));
+            tool.setXp(Math.max(0, xp));
+            applyXpChange(player, tool, itemProfile);
             player.sendMessage(
                     colorize(
                             Objects.requireNonNull(
@@ -138,6 +139,40 @@ public class LevelToolsCommand {
             player.sendMessage(
                     colorize(Objects.requireNonNull(plugin.getConfig().getString("messages.item_not_tool"))));
         }
+    }
+
+    @Subcommand("addxp")
+    @Description("Adds XP to the item in hand (levels up if enough XP).")
+    public void onAddXP(Player player, double xp) {
+        if (!checkPerm(player)) {
+            return;
+        }
+
+        ItemStack item = LevelToolsUtil.getHand(player);
+
+        if (LevelToolsUtil.isSupportedTool(item.getType())) {
+            LevelToolsItem tool = LevelToolsUtil.createLevelToolsItem(item);
+            ItemProfile itemProfile = LevelToolsUtil.getItemProfile(item.getType());
+            tool.setXp(Math.max(0, LevelToolsUtil.round(tool.getXp() + xp, 1)));
+            applyXpChange(player, tool, itemProfile);
+            player.sendMessage(
+                    colorize(
+                            Objects.requireNonNull(plugin
+                                    .getConfig().getString("messages.successfully_executed_action"))));
+        } else {
+            player.sendMessage(
+                    colorize(Objects.requireNonNull(plugin.getConfig().getString("messages.item_not_tool"))));
+        }
+    }
+
+    private void applyXpChange(Player player, LevelToolsItem tool, ItemProfile itemProfile) {
+        if (itemProfile == null || plugin.getProfileManager() == null) {
+            LevelToolsUtil.setHand(player, LevelToolsUtil.getItemStack(tool, player, itemProfile));
+            return;
+        }
+
+        double maxXp = new XPHandler(plugin.getProfileManager()).processLevelUps(player, itemProfile, tool);
+        LevelToolsUtil.setHand(player, tool.getItemStack(maxXp));
     }
 
     @Subcommand("level")
@@ -203,12 +238,10 @@ public class LevelToolsCommand {
             return;
         }
 
-        plugin.getUpdateChecker().check();
         sender.sendMessage("LevelTools Debug Information:");
         sender.sendMessage("- Server Version: " + Bukkit.getVersion());
         sender.sendMessage("- Server Type: " + Bukkit.getBukkitVersion());
         sender.sendMessage("- Plugin Version: " + plugin.getDescription().getVersion());
-        sender.sendMessage("- Latest Version: " + plugin.getUpdateChecker().getLastCheckedVersion());
         sender.sendMessage("{!} Please include your configuration with this when asking for help. Please COPY AND PASTE configuration into discord server. {!}");
     }
 

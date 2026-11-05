@@ -60,17 +60,12 @@ public final class BlockPlacementListener implements Listener {
 
     @Nullable
     private static Block getOtherHalf(@NotNull Block block) {
-        if (!LevelToolsUtil.supportsBlockData()) {
-            return null;
-        }
-
         BlockData data = block.getBlockData();
         Block other = null;
-        if (data instanceof Bed) {
-            Bed bed = (Bed) data;
+        if (data instanceof Bed bed) {
             other = block.getRelative(bed.getPart() == Bed.Part.HEAD ? bed.getFacing().getOppositeFace() : bed.getFacing());
-        } else if (data instanceof Bisected && !(data instanceof Stairs) && !(data instanceof TrapDoor)) {
-            other = block.getRelative(((Bisected) data).getHalf() == Bisected.Half.TOP ? BlockFace.DOWN : BlockFace.UP);
+        } else if (data instanceof Bisected bisected && !(data instanceof Stairs) && !(data instanceof TrapDoor)) {
+            other = block.getRelative(bisected.getHalf() == Bisected.Half.TOP ? BlockFace.DOWN : BlockFace.UP);
         }
 
         return other != null && other.getType() == block.getType() ? other : null;

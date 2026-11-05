@@ -1,5 +1,8 @@
 package me.byteful.plugin.leveltools.util;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.jetbrains.annotations.NotNull;
 
@@ -15,6 +18,17 @@ public final class Text {
     for (char c : "0123456789abcdefklmnor".toCharArray()) {
       COLOR_CODES.add(c);
     }
+  }
+
+  /**
+   * Parses a config string ('&' codes, &#rrggbb) into a component. Italic is switched off unless the text sets it,
+   * so item names and lore don't render in the default italic.
+   */
+  @NotNull
+  public static Component component(@NotNull String input) {
+    return LegacyComponentSerializer.legacySection()
+            .deserialize(colorize(input))
+            .decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE);
   }
 
   @NotNull
