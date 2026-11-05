@@ -1,4 +1,4 @@
-# LevelTools 2.2.0 Paper fork
+# LevelTools 2.2.1 Paper fork
 
 Target: Paper/Purpur 26.3, Java 25. Built on upstream v2.2.0.
 

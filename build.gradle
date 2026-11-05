@@ -22,7 +22,7 @@ dependencies {
 }
 
 group = 'me.byteful.plugin'
-version = '2.2.0-paper'
+version = '2.2.1'
 description = 'LevelTools'
 
 java {
